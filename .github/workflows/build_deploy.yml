@@ -34,12 +34,10 @@ jobs:
 
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v1
-      with:
-        mask-password: 'true'
-        registry-type: public
 
     - name: Build Docker image
-      run: docker build -t ${{ env.ECR_REPOSITORY }}:latest .
+      run: docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}latest .
+
 
     - name: Push Docker image to ECR
-      run: docker push ${{ env.ECR_REPOSITORY }}:latest
+      run:  docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
