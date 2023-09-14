@@ -1,61 +1,60 @@
 provider "aws" {
-  region = "us-east-1"
+  region = var.region
 }
 
-# Providing a reference to our default VPC
-resource "aws_default_vpc" "default_vpc" {}
+# VPC & Subnets
+resource "aws_default_vpc" "main_vpc" {}
 
-# Providing a reference to our default subnets
-resource "aws_default_subnet" "default_subnet_a" {
+resource "aws_default_subnet" "subnet_us_east_1a" {
   availability_zone = "us-east-1a"
 }
 
-resource "aws_default_subnet" "default_subnet_b" {
+resource "aws_default_subnet" "subnet_us_east_1b" {
   availability_zone = "us-east-1b"
 }
 
-resource "aws_default_subnet" "default_subnet_c" {
+resource "aws_default_subnet" "subnet_us_east_1c" {
   availability_zone = "us-east-1c"
 }
 
 # SSL Certificate
-resource "aws_acm_certificate" "cert" {
-  domain_name       = "dev-next.cloudysky.link"
+resource "aws_acm_certificate" "ssl_cert" {
+  domain_name       = var.custom_domain_name
   validation_method = "DNS"
-
   tags = {
     Name = "cloudysky.link-cert"
   }
 }
 
-resource "aws_route53_record" "cert_validation" {
-  zone_id = "Z01798246FUPJEQVEZR8"
-  name    = tolist(aws_acm_certificate.cert.domain_validation_options)[0].resource_record_name
-  type    = tolist(aws_acm_certificate.cert.domain_validation_options)[0].resource_record_type
-  records = [tolist(aws_acm_certificate.cert.domain_validation_options)[0].resource_record_value]
+resource "aws_route53_record" "ssl_cert_validation_record" {
+  zone_id = var.hosted_zone_id
+  name    = tolist(aws_acm_certificate.ssl_cert.domain_validation_options)[0].resource_record_name
+  type    = tolist(aws_acm_certificate.ssl_cert.domain_validation_options)[0].resource_record_type
+  records = [tolist(aws_acm_certificate.ssl_cert.domain_validation_options)[0].resource_record_value]
   ttl     = 60
 }
 
-resource "aws_acm_certificate_validation" "cert_validation" {
-  certificate_arn         = aws_acm_certificate.cert.arn
-  validation_record_fqdns = [aws_route53_record.cert_validation.fqdn]
+resource "aws_acm_certificate_validation" "ssl_cert_validation" {
+  certificate_arn         = aws_acm_certificate.ssl_cert.arn
+  validation_record_fqdns = [aws_route53_record.ssl_cert_validation_record.fqdn]
 }
 
-data "aws_ecr_repository" "existing_repo" {
+data "aws_ecr_repository" "nextjs_repo" {
   name = "nextjs-ecr-repository"
 }
 
-resource "aws_ecs_cluster" "my_cluster" {
-  name = "my-cluster"
+# ECS Resources
+resource "aws_ecs_cluster" "nextjs_cluster" {
+  name = "nextjs-cluster"
 }
 
-resource "aws_ecs_task_definition" "my_first_task" {
-  family                = "my-first-task"
+resource "aws_ecs_task_definition" "nextjs_task" {
+  family                = "nextjs-task"
   container_definitions = <<-DEFINITION
   [
     {
-      "name": "my-first-task",
-      "image": "${data.aws_ecr_repository.existing_repo.repository_url}",
+      "name": "nextjs-container",
+      "image": "${data.aws_ecr_repository.nextjs_repo.repository_url}",
       "essential": true,
       "portMappings": [
         {
@@ -73,13 +72,12 @@ resource "aws_ecs_task_definition" "my_first_task" {
   network_mode             = "awsvpc"
   memory                   = 512
   cpu                      = 256
-  execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
 }
 
-data "aws_iam_policy_document" "assume_role_policy" {
+data "aws_iam_policy_document" "ecs_role_assumption" {
   statement {
     actions = ["sts:AssumeRole"]
-
     principals {
       type        = "Service"
       identifiers = ["ecs-tasks.amazonaws.com"]
@@ -87,24 +85,25 @@ data "aws_iam_policy_document" "assume_role_policy" {
   }
 }
 
-resource "aws_iam_role" "ecsTaskExecutionRole" {
-  name               = "ecsTaskExecutionRole"
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+resource "aws_iam_role" "ecs_execution_role" {
+  name               = "NextJS-ECSTaskExecutionRole"
+  assume_role_policy = data.aws_iam_policy_document.ecs_role_assumption.json
 }
 
-resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
-  role       = aws_iam_role.ecsTaskExecutionRole.name
+resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy_attach" {
+  role       = aws_iam_role.ecs_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_security_group" "load_balancer_security_group" {
+# ALB & Security Groups
+resource "aws_security_group" "alb_sg" {
+  name = "ALB-SecurityGroup"
   ingress {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -113,78 +112,80 @@ resource "aws_security_group" "load_balancer_security_group" {
   }
 }
 
-resource "aws_alb" "application_load_balancer" {
-  name               = "test-lb-tf"
+resource "aws_alb" "nextjs_alb" {
+  name               = "NextJS-ALB"
   load_balancer_type = "application"
   subnets = [
-    aws_default_subnet.default_subnet_a.id,
-    aws_default_subnet.default_subnet_b.id,
-    aws_default_subnet.default_subnet_c.id
+    aws_default_subnet.subnet_us_east_1a.id,
+    aws_default_subnet.subnet_us_east_1b.id,
+    aws_default_subnet.subnet_us_east_1c.id
   ]
-  security_groups = [aws_security_group.load_balancer_security_group.id]
+  security_groups = [aws_security_group.alb_sg.id]
 }
 
-resource "aws_lb_target_group" "target_group" {
-  name        = "target-group"
+resource "aws_lb_target_group" "nextjs_tg" {
+  name        = "NextJS-TargetGroup"
   port        = 80
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = aws_default_vpc.default_vpc.id
+  vpc_id      = aws_default_vpc.main_vpc.id
 }
 
-resource "aws_lb_listener" "listener" {
-  load_balancer_arn = aws_alb.application_load_balancer.arn
+resource "aws_lb_listener" "https_listener" {
+  load_balancer_arn = aws_alb.nextjs_alb.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = aws_acm_certificate_validation.cert_validation.certificate_arn
+  certificate_arn   = aws_acm_certificate_validation.ssl_cert_validation.certificate_arn
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
+    target_group_arn = aws_lb_target_group.nextjs_tg.arn
   }
 }
 
-resource "aws_route53_record" "www" {
-  zone_id = "Z01798246FUPJEQVEZR8"
-  name    = "dev-next.cloudysky.link"
+# Route53 Record
+resource "aws_route53_record" "nextjs_domain_record" {
+  zone_id = var.hosted_zone_id
+  name    = var.custom_domain_name
   type    = "A"
 
   alias {
-    name                   = aws_alb.application_load_balancer.dns_name
-    zone_id                = aws_alb.application_load_balancer.zone_id
+    name                   = aws_alb.nextjs_alb.dns_name
+    zone_id                = aws_alb.nextjs_alb.zone_id
     evaluate_target_health = false
   }
 }
 
-resource "aws_ecs_service" "my_first_service" {
-  name            = "my-first-service"
-  cluster         = aws_ecs_cluster.my_cluster.id
-  task_definition = aws_ecs_task_definition.my_first_task.arn
+# ECS Service
+resource "aws_ecs_service" "nextjs_service" {
+  name            = "NextJS-Service"
+  cluster         = aws_ecs_cluster.nextjs_cluster.id
+  task_definition = aws_ecs_task_definition.nextjs_task.arn
   launch_type     = "FARGATE"
   desired_count   = 1
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.target_group.arn
-    container_name   = "my-first-task"
+    target_group_arn = aws_lb_target_group.nextjs_tg.arn
+    container_name   = "nextjs-container"
     container_port   = 8080
   }
 
   network_configuration {
-    subnets          = [aws_default_subnet.default_subnet_a.id, aws_default_subnet.default_subnet_b.id, aws_default_subnet.default_subnet_c.id]
+    subnets          = [aws_default_subnet.subnet_us_east_1a.id, aws_default_subnet.subnet_us_east_1b.id, aws_default_subnet.subnet_us_east_1c.id]
     assign_public_ip = true
-    security_groups  = [aws_security_group.service_security_group.id]
+    security_groups  = [aws_security_group.ecs_service_sg.id]
   }
 }
 
-resource "aws_security_group" "service_security_group" {
+resource "aws_security_group" "ecs_service_sg" {
+  name = "ECS-Service-SecurityGroup"
   ingress {
     from_port       = 0
     to_port         = 0
     protocol        = "-1"
-    security_groups = [aws_security_group.load_balancer_security_group.id]
+    security_groups = [aws_security_group.alb_sg.id]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
