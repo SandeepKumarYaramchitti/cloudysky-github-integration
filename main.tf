@@ -63,7 +63,13 @@ resource "aws_ecs_task_definition" "nextjs_task" {
         }
       ],
       "memory": 512,
-      "cpu": 256
+      "cpu": 256,
+      "environment": [
+        {
+          "name": "NEXT_PUBLIC_BASE_URL",
+          "value": "https://dev-next.cloudysky.link"
+        }
+      ],
     }
   ]
   DEFINITION

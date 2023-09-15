@@ -17,6 +17,10 @@ type ExtractedTaskData = {
   launchType: string;
 };
 
+const maskAccountId = (imageUrl: string): string => {
+  return imageUrl.replace(/(\d{12})\.dkr\.ecr\.us-east-1\.amazonaws\.com/, 'XXXXXXXXXXXX.dkr.ecr.us-east-1.amazonaws.com');
+};
+
 const extractTaskData = (data: any): ExtractedTaskData[] => {
   if (!data.tasks) return [];
 
@@ -26,7 +30,7 @@ const extractTaskData = (data: any): ExtractedTaskData[] => {
     connectivityAt: task.connectivityAt,
     containers: task.containers.map((container: any) => ({
       name: container.name,
-      image: container.image,
+      image: maskAccountId(container.image),
       lastStatus: container.lastStatus,
       cpu: container.cpu,
       memory: container.memory,
