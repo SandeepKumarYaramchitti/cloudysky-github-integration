@@ -5,7 +5,7 @@ export default async function Home() {
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
-  const data= await fetch(`${BASE_URL}/api/awsservice`)
+  const data= await fetch(`${BASE_URL}/api/awsservice`, { cache: 'no-cache' })
   const ecsDetails = await data.json()
   return (
     <main className="flex min-h-screen max-w-7xl flex-col items-center justify-between p-15">
