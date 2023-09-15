@@ -63,7 +63,13 @@ resource "aws_ecs_task_definition" "nextjs_task" {
         }
       ],
       "memory": 512,
-      "cpu": 256
+      "cpu": 256,
+      "environment": [
+        {
+          "name": "NEXT_PUBLIC_BASE_URL",
+          "value": "https://dev-next.cloudysky.link"
+        }
+      ],
     }
   ]
   DEFINITION
@@ -163,7 +169,7 @@ resource "aws_ecs_service" "nextjs_service" {
   cluster         = aws_ecs_cluster.nextjs_cluster.id
   task_definition = aws_ecs_task_definition.nextjs_task.arn
   launch_type     = "FARGATE"
-  desired_count   = 1
+  desired_count   = 3
 
   load_balancer {
     target_group_arn = aws_lb_target_group.nextjs_tg.arn
