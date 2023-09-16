@@ -10,7 +10,7 @@ export default async function Home() {
   return (
     <main className="flex min-h-screen max-w-7xl flex-col items-center justify-between p-15">
       <div className='flex items-center justify-center min-h-screen  flex-wrap'>
-        {ecsDetails.map((task: ExtractedTaskData, index) => (
+        {ecsDetails.map((task: ExtractedTaskData, index: number) => (
           <TaskCard task={task} key={index} />
         ))}
       </div>
