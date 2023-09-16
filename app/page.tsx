@@ -11,20 +11,4 @@ export default async function Home() {
   )
 }
 
-type ExtractedTaskData = {
-  availabilityZone: string;
-  connectivity: string;
-  connectivityAt: string;
-  containers: {
-    name: string;
-    image: string;
-    lastStatus: string;
-    cpu: string;
-    memory: string;
-  }[];
-  cpu: string;
-  memory: string;
-  launchType: string;
-};
-
 
