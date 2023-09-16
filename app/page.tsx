@@ -5,8 +5,11 @@ export default async function Home() {
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 
-  const data= await fetch(`${BASE_URL}/api/awsservice`)
-  const ecsDetails = await data.json()
+  const response= await fetch(`${BASE_URL}/api/awsservice`)
+  if (!response.ok) {
+    console.log(response.statusText)
+  }
+  const ecsDetails = await response.json()
   return (
     <main className="flex min-h-screen max-w-7xl flex-col items-center justify-between p-15">
       <div className='flex items-center justify-center min-h-screen  flex-wrap'>
