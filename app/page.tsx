@@ -3,7 +3,7 @@ import TaskCard from './components/TaskCard';
 
 export default async function Home() {
 
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 
   const data= await fetch(`${BASE_URL}/api/awsservice`, { cache: 'no-cache' })
   const ecsDetails = await data.json()
